@@ -1,19 +1,21 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { Course, Note, Material, View } from './types';
-import { BookIcon, PlusIcon, NoteIcon, TrashIcon, LinkIcon, SparklesIcon } from './components/Icons';
-import { summarizeNote, generateStudyQuestions } from './services/geminiService';
+import { Course, Note, Material, View } from './types.ts';
+import { BookIcon, PlusIcon, NoteIcon, TrashIcon, LinkIcon, SparklesIcon } from './components/Icons.tsx';
+import { summarizeNote, generateStudyQuestions } from './services/geminiService.ts';
 
 // Unified blue theme constants
 const THEME_COLOR = 'bg-blue-600';
-const THEME_TEXT = 'text-blue-600';
 
-// --- Components ---
+interface MaterialItemProps {
+  material: Material;
+  onDelete: (id: string) => void;
+}
 
 /**
  * MaterialItem displays attached resources with high-contrast text and permanent badges.
+ * Fixed: Explicitly typed with React.FC to allow 'key' prop during list rendering.
  */
-const MaterialItem = ({ material, onDelete }: { material: Material; onDelete: (id: string) => void }) => (
+const MaterialItem: React.FC<MaterialItemProps> = ({ material, onDelete }) => (
   <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-blue-50/50 hover:border-blue-300 transition-all group/mat shadow-sm">
     <div className="flex items-center gap-3">
       <div className="p-2 bg-blue-100 rounded-lg text-blue-700">
@@ -29,7 +31,7 @@ const MaterialItem = ({ material, onDelete }: { material: Material; onDelete: (i
           {material.name}
         </a>
         {/* Permanent, high-contrast badge for type visibility */}
-        <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider mt-1 border border-slate-200">
+        <span className="inline-block px-2 py-0.5 rounded bg-slate-800 text-white text-[10px] font-black uppercase tracking-wider mt-1 border border-slate-900">
           {material.type}
         </span>
       </div>
@@ -45,14 +47,12 @@ const MaterialItem = ({ material, onDelete }: { material: Material; onDelete: (i
 );
 
 export default function App() {
-  // --- State ---
   const [courses, setCourses] = useState<Course[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [currentView, setCurrentView] = useState<View>('catalog');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   
-  // Forms state
   const [searchQuery, setSearchQuery] = useState('');
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [activeNote, setActiveNote] = useState<Note | null>(null);
@@ -63,12 +63,10 @@ export default function App() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [studyQuestions, setStudyQuestions] = useState<{question: string, answer: string}[]>([]);
 
-  // --- Persistence ---
   useEffect(() => {
     const savedCourses = localStorage.getItem('uni_courses');
     const savedNotes = localStorage.getItem('uni_notes');
     const savedMaterials = localStorage.getItem('uni_materials');
-
     if (savedCourses) setCourses(JSON.parse(savedCourses));
     if (savedNotes) setNotes(JSON.parse(savedNotes));
     if (savedMaterials) setMaterials(JSON.parse(savedMaterials));
@@ -80,24 +78,19 @@ export default function App() {
     localStorage.setItem('uni_materials', JSON.stringify(materials));
   }, [courses, notes, materials]);
 
-  // --- Reordering Logic ---
   const handleMoveNote = (relativeIndex: number, direction: 'up' | 'down') => {
     const courseNotesIndices = notes.reduce((acc, note, index) => {
       if (note.courseId === selectedCourseId) acc.push(index);
       return acc;
     }, [] as number[]);
-
     const globalIndex = courseNotesIndices[relativeIndex];
     const targetGlobalIndex = direction === 'up' ? courseNotesIndices[relativeIndex - 1] : courseNotesIndices[relativeIndex + 1];
-    
     if (targetGlobalIndex === undefined) return;
-
     const newNotes = [...notes];
     [newNotes[globalIndex], newNotes[targetGlobalIndex]] = [newNotes[targetGlobalIndex], newNotes[globalIndex]];
     setNotes(newNotes);
   };
 
-  // --- Derived Data ---
   const filteredCourses = useMemo(() => {
     const cleanQuery = searchQuery.toLowerCase().trim();
     if (!cleanQuery) return courses;
@@ -115,7 +108,6 @@ export default function App() {
     notes.filter(n => n.courseId === selectedCourseId), 
   [notes, selectedCourseId]);
 
-  // --- Handlers ---
   const handleAddCourse = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -132,7 +124,7 @@ export default function App() {
 
   const handleDeleteCourse = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // CRITICAL: Stop the card click from triggering navigation
+    e.stopPropagation();
     if (window.confirm('Delete this course? All associated content will be lost.')) {
       setCourses(prev => prev.filter(c => c.id !== id));
       setNotes(prev => prev.filter(n => n.courseId !== id));
@@ -149,7 +141,6 @@ export default function App() {
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
-
     if (activeNote) {
       setNotes(notes.map(n => n.id === activeNote.id ? { ...n, title, content, updatedAt: Date.now() } : n));
     } else {
@@ -220,8 +211,6 @@ export default function App() {
     }
   };
 
-  // --- Main Render ---
-
   return (
     <div className="min-h-screen bg-slate-50 pb-32">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-[100] shadow-sm">
@@ -241,9 +230,8 @@ export default function App() {
       </nav>
 
       <main className="pt-10">
-        {/* CATALOG VIEW */}
         {currentView === 'catalog' && (
-          <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-300">
+          <div className="max-w-6xl mx-auto p-6 transition-opacity duration-300">
             <div className="flex justify-between items-center mb-10">
               <div>
                 <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Course Catalog</h1>
@@ -261,7 +249,7 @@ export default function App() {
               <input 
                 type="text"
                 placeholder="Search by course name or description..."
-                className="w-full pl-16 pr-6 py-6 rounded-3xl border-2 border-slate-200 focus:border-blue-600 outline-none transition-all text-xl shadow-md bg-white text-slate-900 placeholder:text-slate-400 font-medium"
+                className="w-full pl-16 pr-6 py-6 rounded-3xl border-2 border-slate-200 focus:border-blue-600 outline-none transition-all text-xl shadow-md bg-white !text-slate-900 placeholder:text-slate-400 font-medium"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -280,16 +268,6 @@ export default function App() {
                   }}
                   className="group relative bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-200 hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer flex flex-col min-h-[300px]"
                 >
-                  <div className="absolute top-6 right-6 z-20">
-                    <button 
-                      onClick={(e) => handleDeleteCourse(course.id, e)}
-                      className="p-3 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all shadow-sm border border-slate-100"
-                      title="Delete Course"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                  
                   <div className={`p-4 rounded-2xl ${THEME_COLOR} text-white shadow-lg w-fit mb-8`}>
                     <BookIcon />
                   </div>
@@ -306,6 +284,14 @@ export default function App() {
                       ID: {course.id.slice(0,8)} • {new Date(course.createdAt).toLocaleDateString()}
                     </span>
                   </div>
+
+                  <button 
+                    onClick={(e) => handleDeleteCourse(course.id, e)}
+                    className="absolute top-6 right-6 z-[50] p-3 bg-white text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all shadow-md border border-slate-200"
+                    title="Delete Course"
+                  >
+                    <TrashIcon />
+                  </button>
                 </div>
               )) : (
                 <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-300">
@@ -317,9 +303,8 @@ export default function App() {
           </div>
         )}
 
-        {/* ADD COURSE VIEW */}
         {currentView === 'add-course' && (
-          <div className="max-w-2xl mx-auto p-6 animate-in slide-in-from-bottom duration-300">
+          <div className="max-w-2xl mx-auto p-6">
             <button 
               onClick={() => setCurrentView('catalog')}
               className="mb-8 text-blue-600 hover:text-blue-700 font-black flex items-center gap-2 group transition-all"
@@ -332,11 +317,11 @@ export default function App() {
               <form onSubmit={handleAddCourse} className="space-y-8">
                 <div>
                   <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Course Name</label>
-                  <input name="name" required placeholder="Introduction to Psychology..." className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none text-xl font-bold transition-all text-slate-900 bg-white" />
+                  <input name="name" required placeholder="Introduction to Psychology..." className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none text-xl font-bold transition-all !text-slate-900 bg-white" />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Brief Description</label>
-                  <textarea name="description" rows={4} placeholder="Summary of the module objectives..." className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none resize-none text-lg font-medium transition-all text-slate-900 bg-white"></textarea>
+                  <textarea name="description" rows={4} placeholder="Summary of the module objectives..." className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none resize-none text-lg font-medium transition-all !text-slate-900 bg-white"></textarea>
                 </div>
                 <button type="submit" className={`w-full ${THEME_COLOR} text-white py-6 rounded-2xl font-black text-xl hover:scale-[1.02] transition-all shadow-xl active:scale-95`}>
                   CREATE WORKSPACE
@@ -346,9 +331,8 @@ export default function App() {
           </div>
         )}
 
-        {/* COURSE DETAIL VIEW */}
         {currentView === 'course-detail' && selectedCourse && (
-          <div className="max-w-5xl mx-auto p-6 animate-in fade-in duration-300">
+          <div className="max-w-5xl mx-auto p-6">
             <div className="mb-12">
               <button 
                 onClick={() => setCurrentView('catalog')}
@@ -424,7 +408,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Note Preview */}
                   <div className="bg-slate-50 rounded-3xl p-10 mb-10 border border-slate-200">
                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Note Body Preview</h4>
                      <p className="text-slate-900 leading-relaxed whitespace-pre-wrap font-medium line-clamp-[10] text-lg italic bg-white/50 p-6 rounded-2xl border border-white">
@@ -432,7 +415,6 @@ export default function App() {
                      </p>
                   </div>
 
-                  {/* Integrated Resources */}
                   <div className="border-t border-slate-100 pt-10">
                     <div className="flex justify-between items-center mb-6">
                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
@@ -449,9 +431,6 @@ export default function App() {
                       {materials.filter(m => m.noteId === note.id).map(mat => (
                         <MaterialItem key={mat.id} material={mat} onDelete={handleDeleteMaterial} />
                       ))}
-                      {materials.filter(m => m.noteId === note.id).length === 0 && (
-                        <p className="text-slate-400 text-xs font-bold italic py-4">No resources attached to this specific entry.</p>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -465,12 +444,9 @@ export default function App() {
         )}
       </main>
 
-      {/* --- Modals --- */}
-
-      {/* Note Editor Modal */}
       {isNoteModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
-          <div className="bg-white rounded-[3rem] w-full max-w-5xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[3rem] w-full max-w-5xl overflow-hidden shadow-2xl">
             <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{activeNote ? 'Edit Entry' : 'New Entry'}</h3>
               <button onClick={() => setIsNoteModalOpen(false)} className="p-3 text-slate-400 hover:text-slate-600 transition-all bg-white rounded-2xl shadow-sm border border-slate-100">
@@ -480,11 +456,11 @@ export default function App() {
             <form onSubmit={handleSaveNote} className="p-12">
               <div className="mb-10">
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Subject</label>
-                <input name="title" required defaultValue={activeNote?.title} placeholder="e.g. Fundamental Theorems..." className="w-full px-8 py-6 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none text-2xl font-black text-slate-900 bg-slate-50" />
+                <input name="title" required defaultValue={activeNote?.title} placeholder="e.g. Fundamental Theorems..." className="w-full px-8 py-6 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none text-2xl font-black !text-slate-900 bg-slate-50" />
               </div>
               <div className="mb-12">
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Content</label>
-                <textarea name="content" required rows={12} defaultValue={activeNote?.content} placeholder="Enter detailed notes..." className="w-full px-8 py-6 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none resize-none font-mono text-lg leading-relaxed text-slate-900 bg-slate-50"></textarea>
+                <textarea name="content" required rows={12} defaultValue={activeNote?.content} placeholder="Enter detailed notes..." className="w-full px-8 py-6 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none resize-none font-mono text-lg leading-relaxed !text-slate-900 bg-slate-50"></textarea>
               </div>
               <div className="flex justify-end gap-6">
                 <button type="button" onClick={() => setIsNoteModalOpen(false)} className="px-10 py-5 rounded-2xl text-slate-500 font-black hover:bg-slate-100 transition-all uppercase tracking-widest text-xs">Cancel</button>
@@ -495,10 +471,9 @@ export default function App() {
         </div>
       )}
 
-      {/* Resource Modal */}
       {isMaterialModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl">
             <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Add Resource</h3>
                <button onClick={() => setIsMaterialModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -508,15 +483,15 @@ export default function App() {
             <form onSubmit={handleAddMaterial} className="p-8 space-y-8">
                <div>
                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Label Name</label>
-                 <input name="name" required placeholder="Course Syllabus" className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none font-bold text-slate-900 bg-slate-50" />
+                 <input name="name" required placeholder="Course Syllabus" className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none font-bold !text-slate-900 bg-slate-50" />
                </div>
                <div>
                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Target URL / File Path</label>
-                 <input name="url" required placeholder="https://..." className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none font-mono text-sm text-slate-900 bg-slate-50" />
+                 <input name="url" required placeholder="https://..." className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none font-mono text-sm !text-slate-900 bg-slate-50" />
                </div>
                <div>
                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Resource Type</label>
-                 <select name="type" className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none bg-slate-50 appearance-none cursor-pointer font-bold text-slate-900">
+                 <select name="type" className="w-full px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-blue-600 outline-none bg-slate-50 appearance-none cursor-pointer font-bold !text-slate-900">
                     <option>Link</option>
                     <option>File</option>
                     <option>Reference</option>
@@ -530,9 +505,8 @@ export default function App() {
         </div>
       )}
 
-      {/* AI Dashboard */}
       {(aiSummary || studyQuestions.length > 0 || aiLoading) && (
-        <div className="fixed bottom-10 right-10 z-[150] w-full max-w-lg animate-in slide-in-from-right duration-500">
+        <div className="fixed bottom-10 right-10 z-[150] w-full max-w-lg">
            <div className="bg-slate-900 text-white rounded-[3rem] p-10 shadow-2xl relative overflow-hidden border-4 border-blue-600">
               <button 
                 onClick={() => { setAiSummary(null); setStudyQuestions([]); }}
@@ -544,7 +518,6 @@ export default function App() {
                 <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-900/50"><SparklesIcon /></div> 
                 Insight Engine
               </h3>
-              
               {aiLoading ? (
                 <div className="flex flex-col items-center py-12 gap-6">
                   <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500/20 border-t-blue-500"></div>
@@ -593,7 +566,7 @@ export default function App() {
              <span className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div> PERSISTENT</span>
              <span className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div> AI-POWERED</span>
            </div>
-           <p className="text-slate-400 text-xs font-black tracking-widest opacity-50">UNISPHERE • PROFESSIONAL WORKSPACE V1.5</p>
+           <p className="text-slate-400 text-xs font-black tracking-widest opacity-50 uppercase">UniSphere • Workspace V1.6</p>
         </div>
       </footer>
 
